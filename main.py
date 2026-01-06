@@ -1,24 +1,12 @@
-from enum import Enum
+from pydantic import BaseModel, Field
+from typing import Generic, TypeVar
 from datetime import datetime
-from pydantic import BaseModel, Field, AliasChoices
+
+T = TypeVar("T")
 
 
-class PriorityLevel(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-class StatusType(str, Enum):
-    TRIVIAL = "trivial"
-    MINOR = "minor"
-    MAJOR = "major"
-    BLOCKER = "blocker"
-
-
-class UserTask(BaseModel):
-    uid: int = Field(validation_alias=AliasChoices("uid", "task_id", "id"))
-    title: str = Field(min_length=5)
-    priority: PriorityLevel = PriorityLevel.MEDIUM
-    notes: str | None = None
-    tags: list[str] = Field(default_factory=list[str])
+class ApiResponse(BaseModel, Generic[T]):
+    data: T
+    status_code: int
+    timestamp: datetime = Field(default_factory=datetime.now)
+    message: str = "Success"
