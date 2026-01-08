@@ -1,19 +1,29 @@
-from enum import Enum
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, SecretStr, field_validator
 
 
 class Employee(BaseModel):
-    name: str = Field(min_length=8, max_length=50)
-    role: str = Field(min_length=5, max_length=30)
-    subordinates: list["Employee"] = Field(default_factory=list)
+    name: str
+    email: str
+    password: SecretStr = Field(exclude=True)
+    salary: int
 
-    @computed_field
-    @property
-    def is_manager(self) -> bool:
-        return bool(self.subordinates)
+    @field_validator("name")
+    @classmethod
+    def name_validator(cls, v):
+        if any(char.isdigit() for char in v):
+            raise ValueError("Name must not contain numbers")
+        return v
 
-    def get_total_team_size(self) -> int:
-        total_size = 0
-        for subordinate in self.subordinates:
-            total_size += subordinate.get_total_team_size()
-        return total_size
+    @field_validator("email")
+    @classmethod
+    def email_validator(cls, v):
+        if "@" not in v:
+            raise ValueError("Invalid email address")
+        return v
+
+    @field_validator("salary")
+    @classmethod
+    def salary_calidator(cls, v):
+        if v < 30000:
+            raise ValueError("Salary must be at least 30000")
+        return v
