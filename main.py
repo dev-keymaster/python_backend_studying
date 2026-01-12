@@ -1,64 +1,56 @@
-from fastapi import FastAPI
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    SecretStr,
-    field_validator,
-    EmailStr,
-    UUID4,
-)
-
-from uuid import uuid4
-
-from pydantic.alias_generators import to_camel
-
-
-class UserCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    password: SecretStr = Field(min_length=8, exclude=True)
-
-    @field_validator("email")
-    @classmethod
-    def email_must_be_valid(cls, v):
-        if "@" not in v:
-            raise ValueError("Invalid email address")
-        return v
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, strict=True, extra="forbid"
-    )
-
-    @field_validator("password")
-    @classmethod
-    def password_must_be_valid(cls, v):
-        if len(v) < 8 or "password" in v.get_secret_value().lower():
-            raise ValueError(
-                "Password must be at least 8 characters long and not contain 'password'"
-            )
-        return v
-
-
-class UserOut(BaseModel):
-    id: UUID4
-    first_name: str
-    last_name: str
-    email: EmailStr
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+from fastapi import FastAPI, Path, Query, HTTPException, status
+from pydantic import BaseModel
 
 
 app = FastAPI()
 
 
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
+users_db = [
+    {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "email": "test@test.com",
+        "first_name": "Ivan",
+    },
+    {
+        "id": "660e8400-e29b-41d4-a716-446655440001",
+        "email": "test@test.com",
+        "first_name": "Petr",
+    },
+    {
+        "id": "770e8400-e29b-41d4-a716-446655440002",
+        "email": "test@test.com",
+        "first_name": "Sergey",
+    },
+    {
+        "id": "880e8400-e29b-41d4-a716-446655440003",
+        "email": "test@test.com",
+        "first_name": "Dmitry",
+    },
+]
 
 
-@app.post("/users/register", response_model=UserOut)
-async def register_user(user: UserCreate):
-    id = uuid4()
-    return {"id": id, **user.model_dump()}
+class User(BaseModel):
+    id: str
+    email: str
+    first_name: str
+
+
+@app.get("/users/{user_id}", response_model=User)
+def get_user_by_id(
+    user_id: str = Path(
+        ..., description="The ID of the user to get", min_length=36, max_length=36
+    )
+):
+    user = next((u for u in users_db if u["id"] == user_id), None)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {user_id} not found",
+        )
+    return user
+
+
+@app.get("/users", response_model=list[User])
+def get_users_list(offset: int = Query(0, ge=0), limit: int = Query(100, ge=1)):
+    return users_db[offset : offset + limit]
