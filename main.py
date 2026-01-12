@@ -1,64 +1,28 @@
-from fastapi import FastAPI
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    SecretStr,
-    field_validator,
-    EmailStr,
-    UUID4,
-)
+from fastapi import FastAPI, status
+from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
-from uuid import uuid4
-
-from pydantic.alias_generators import to_camel
+app = FastAPI(title="Task Manager API", version="1.0.0")
 
 
-class UserCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    password: SecretStr = Field(min_length=8, exclude=True)
-
-    @field_validator("email")
-    @classmethod
-    def email_must_be_valid(cls, v):
-        if "@" not in v:
-            raise ValueError("Invalid email address")
-        return v
-
-    model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, strict=True, extra="forbid"
-    )
-
-    @field_validator("password")
-    @classmethod
-    def password_must_be_valid(cls, v):
-        if len(v) < 8 or "password" in v.get_secret_value().lower():
-            raise ValueError(
-                "Password must be at least 8 characters long and not contain 'password'"
-            )
-        return v
+class TaskBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
+    description: str | None = Field(None, max_length=500)
+    priority: int = Field(default=3, ge=1, le=5)
+    is_completed: bool = False
 
 
-class UserOut(BaseModel):
-    id: UUID4
-    first_name: str
-    last_name: str
-    email: EmailStr
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+class TaskCreate(TaskBase):
+    pass
 
 
-app = FastAPI()
+class TaskOut(TaskBase):
+    id: UUID = Field(default_factory=uuid4)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
-
-
-@app.post("/users/register", response_model=UserOut)
-async def register_user(user: UserCreate):
-    id = uuid4()
-    return {"id": id, **user.model_dump()}
+@app.post("/tasks/", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
+async def create_task(task: TaskCreate) -> TaskOut:
+    task_out = TaskOut(**task.model_dump())
+    return task_out
