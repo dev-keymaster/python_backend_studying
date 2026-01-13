@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator, EmailStr
+from pydantic import BaseModel, Field, EmailStr
 from fastapi import FastAPI, Query, status, HTTPException
 from uuid import UUID, uuid4
 from typing import Annotated
